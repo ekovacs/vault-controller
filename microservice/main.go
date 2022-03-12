@@ -21,12 +21,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 )
 
 const tokenFile = "/var/run/secrets/vaultproject.io/secret.json"
+
+type PeerVerifier func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
 
 var (
 	addr          string
@@ -119,6 +122,16 @@ func startServer() {
 			ClientAuth:     tls.RequireAndVerifyClientCert,
 			ClientCAs:      clientCAPool,
 			GetCertificate: cm.GetCertificate,
+			GetConfigForClient: func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
+				serverCfg := &tls.Config{
+					Certificates:          cm.Certificates(),
+					MinVersion:            tls.VersionTLS13,
+					ClientAuth:            tls.RequireAndVerifyClientCert,
+					ClientCAs:             clientCAPool,
+					VerifyPeerCertificate: getClientValidator(chi, clientCAPool),
+				}
+				return serverCfg, err
+			},
 		},
 	}
 
@@ -127,6 +140,21 @@ func startServer() {
 	})
 
 	log.Fatal(server.ListenAndServeTLS("", ""))
+}
+
+func getClientValidator(helloInfo *tls.ClientHelloInfo, certPool *x509.CertPool) PeerVerifier {
+	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		fmt.Printf("client remote addr: %s", helloInfo.Conn.RemoteAddr().String())
+		opts := x509.VerifyOptions{
+			Roots:         certPool,
+			CurrentTime:   time.Now(),
+			Intermediates: certPool,
+			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+			DNSName:       strings.Split(helloInfo.Conn.RemoteAddr().String(), ":")[0],
+		}
+		_, err := verifiedChains[0][0].Verify(opts)
+		return err
+	}
 }
 
 func startClient(done <-chan bool, wg *sync.WaitGroup) {
