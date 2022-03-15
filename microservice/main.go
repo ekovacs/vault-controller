@@ -134,6 +134,8 @@ func startServer() {
 			},
 		},
 	}
+	// so that each new request will get verified
+	server.SetKeepAlivesEnabled(false)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello from %s service", serviceName)
@@ -144,7 +146,8 @@ func startServer() {
 
 func getClientValidator(helloInfo *tls.ClientHelloInfo, certPool *x509.CertPool) PeerVerifier {
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-		fmt.Printf("client remote addr: %s", helloInfo.Conn.RemoteAddr().String())
+		log.Printf("client remote addr: %s", helloInfo.Conn.RemoteAddr().String())
+		log.Printf("verified chains: %v", verifiedChains)
 		opts := x509.VerifyOptions{
 			Roots:         certPool,
 			CurrentTime:   time.Now(),
@@ -159,11 +162,12 @@ func getClientValidator(helloInfo *tls.ClientHelloInfo, certPool *x509.CertPool)
 
 func startClient(done <-chan bool, wg *sync.WaitGroup) {
 	c := &PKIConfig{
-		Addr:       vaultAddr,
-		CommonName: podDomainName(ip, namespace, clusterDomain),
-		IssuePath:  clientPKIPath,
-		Token:      vaultToken,
-		TTL:        clientPKITTL,
+		Addr:        vaultAddr,
+		CommonName:  podDomainName(ip, namespace, clusterDomain),
+		IPAddresses: []string{ip},
+		IssuePath:   clientPKIPath,
+		Token:       vaultToken,
+		TTL:         clientPKITTL,
 	}
 	cm, err := NewCertificateManager(c)
 	if err != nil {
@@ -226,7 +230,8 @@ func serviceDomainName(name, namespace, domain string) string {
 }
 
 func podDomainName(ip, namespace, domain string) string {
-	return fmt.Sprintf("%s.%s.pod.%s", ip, namespace, domain)
+	dashedIP := strings.ReplaceAll(ip, ".", "-")
+	return fmt.Sprintf("%s.%s.pod.%s", dashedIP, namespace, domain)
 }
 
 func podHeadlessDomainName(hostname, subdomain, namespace, domain string) string {
