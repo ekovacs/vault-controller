@@ -1,9 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
   name: vault
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+        app: vault
   template:
     metadata:
       labels:
@@ -11,7 +14,7 @@ spec:
     spec:
       containers:
         - name: vault
-          image: "vault:0.6.2"
+          image: "arm64v8/vault"
           args:
             - "server"
             - "-dev"
