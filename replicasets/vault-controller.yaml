@@ -1,8 +1,12 @@
-apiVersion: extensions/v1beta1
+---
+apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
   name: vault-controller
 spec:
+  selector:
+    matchLabels:
+        app: vault-controller
   replicas: 1
   template:
     metadata:
@@ -11,8 +15,7 @@ spec:
     spec:
       containers:
         - name: vault-controller
-          image: "kelseyhightower/vault-controller:0.0.1"
-          imagePullPolicy: Always
+          image: vault-controller:0.0.1
           env:
             - name: VAULT_TOKEN
               valueFrom:
@@ -26,6 +29,30 @@ spec:
             - name: VAULT_ADDR
               value: "http://vault:8200"
         - name: kubectl
-          image: kelseyhightower/kubectl:1.4.0
+          image: rancher/kubectl:v1.22.6
           args:
             - "proxy"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: vault-controller
+  name: pod-reader
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-reader
+  namespace: vault-controller
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: vault-controller
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
