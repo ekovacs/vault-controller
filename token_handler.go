@@ -83,7 +83,7 @@ func tokenRequestHandler(w io.Writer, r *http.Request) (int, error) {
 	}
 	secret, err := vaultClient.Auth().Token().Create(tcr)
 	if err != nil {
-		return 500, fmt.Errorf("error creating wrapped token for pod (%s)", name)
+		return 500, fmt.Errorf("error creating wrapped token for pod (%s), error: %w", name, err)
 	}
 
 	var wrappedToken bytes.Buffer
