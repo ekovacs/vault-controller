@@ -62,10 +62,10 @@ Each Pod will generate a dynamic set of short-lived TLS certificates, using its 
 
 ### Enable the Vault PKI secret backend
 
-Mount the PKI secret backend:
+Enable the PKI secret backend:
 
 ```
-vault mount pki
+vault secrets enable pki
 ```
 
 ### Configure a CA certificate
@@ -124,7 +124,7 @@ The `allow_any_name` and `enforce_hostnames` flags are being set here to enable 
 In this section we need to create a Vault policy that will enable Pods to generate certificates. Pods generate secrets by writing to a PKI issue path based on the role (`/pki/issue/<role name>`).
 
 ```
-vault policy-write microservice policies/microservice.hcl
+vault policy write microservice policies/microservice.hcl
 ```
 
 At this point tokens with the `microservice` policy can generate TLS certs from the following paths:
